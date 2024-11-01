@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ai/packages/elevenlab"
 	"bufio"
 	"bytes"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -32,9 +34,11 @@ type Nomi struct ***REMOVED***
 ***REMOVED***
 
 type Config struct ***REMOVED***
-	Apikey      string       `json:"apiKey"`
-	DefaultName string       `json:"default"`
-	Nomi        []NomiConfig `json:"nomis"`
+	Apikey       string       `json:"apiKey"`
+	DefaultName  string       `json:"default"`
+	ElevenlabKey string       `json:"elevenlab"`
+	EnableEleven string       `json:"activateVoice"`
+	Nomi         []NomiConfig `json:"nomis"`
 ***REMOVED***
 type NomiConfig struct ***REMOVED***
 	Name   string `json:"name"`
@@ -43,14 +47,19 @@ type NomiConfig struct ***REMOVED***
 ***REMOVED***
 
 const filePath string = "config.json"
+const audioFile string = "output.mp3"
 
+var elevenlabKey string
 var res GetNomisResponse
 var currentData Config
 var apikey string
 var nomiId string
 var nomiName string
+var activateElevenlab bool
+var voiceId2 string = "cgSgspJ2msm6clMCkdW9"
 
 func main() ***REMOVED***
+
 	if fileExists(filePath) ***REMOVED***
 		jsonData, err := os.ReadFile(filePath)
 		if err != nil ***REMOVED***
@@ -65,6 +74,10 @@ func main() ***REMOVED***
 		***REMOVED***
 		apikey = currentData.Apikey
 		///fmt.Println(apikey)
+		elevenlabKey = currentData.ElevenlabKey
+		str := "true"
+		activateElevenlab = str == currentData.EnableEleven
+		//fmt.Println("activateelevenlab:", activateElevenlab)
 		//if a name is set in the config.json, it will auitomatically pick it
 		if currentData.DefaultName != "" ***REMOVED***
 			nomiName = currentData.DefaultName
@@ -75,61 +88,124 @@ func main() ***REMOVED***
 		***REMOVED***
 
 	***REMOVED*** else ***REMOVED***
-		fmt.Println("No config file found, please paste here your api key to generate config:")
-		fmt.Scan(&apikey)
-		//fmt.Println(apikey)
-
-		for ***REMOVED***
-			fmt.Println("please pick a default nomi (by their name) to chat with (you can change this later, type :h to know more):")
-			fmt.Println("listapi:")
-			_, nomis := listAndValidate("", 3)
-			fmt.Println(nomis)
-			var userInput string
-			fmt.Scan(&userInput)
-			//fmt.Println(userInput)
-
-			exists, _ := listAndValidate(userInput, 1)
-
-			//fmt.Println("exists:", exists)
-			if !exists ***REMOVED***
-				fmt.Printf("\033[31mNo Nomi with the name '%s' was found, please pick a valid name (case sensitive)\033[0m\n", userInput)
-			***REMOVED*** else ***REMOVED***
-				generateConfig()
-				break
-			***REMOVED***
-		***REMOVED***
+		regenerateConfig()
 	***REMOVED***
 
 	startChatting()
 ***REMOVED***
 
 // function generateConfig generates the config file
+func regenerateConfig() ***REMOVED***
+	fmt.Println("please paste here your api key to generate your config:")
+	fmt.Scan(&apikey)
+	//fmt.Println(apikey)
+	var activateElevenlabString string
+	fmt.Println("do you wanna add an elevenlab api key? (so your nomi can have a voice) (y/n)")
+	fmt.Println("\033[31mYou NEED to install mpv if you want this to work\033[0m")
+
+	for ***REMOVED***
+		fmt.Scan(&activateElevenlabString)
+		switch strings.ToLower(activateElevenlabString) ***REMOVED***
+		case "y", "yes":
+			isIt := isMpvInstalled()
+
+			if !isIt ***REMOVED***
+				fmt.Println("mpv isnt detected. please ensure that it is on your PATH")
+				regenerateConfig()
+			***REMOVED***
+			activateElevenlab = true
+			fmt.Println("paste your api key here:")
+			fmt.Scan(&elevenlabKey)
+			fmt.Println("do you to use a different voice?(the default one is cgSgspJ2msm6clMCkdW9) (y/n) ")
+			var voiceId string
+			for ***REMOVED***
+				fmt.Scan(&voiceId)
+				switch strings.ToLower(voiceId) ***REMOVED***
+				case "y", "yes":
+					fmt.Println("enter the voice id here:")
+					fmt.Scan(&voiceId2)
+					break
+				case "n", "no", "":
+					fmt.Println("the default voice id is set")
+					voiceId2 = "cgSgspJ2msm6clMCkdW9"
+					break
+				default:
+					fmt.Println("please input y (yes) ot n (no)")
+					continue
+				***REMOVED***
+				break
+			***REMOVED***
+			break
+		case "n", "no", "":
+			activateElevenlab = false
+			break
+		default:
+			fmt.Println("please input y (yes) or n (no)")
+			continue
+		***REMOVED***
+		break
+	***REMOVED***
+
+	for ***REMOVED***
+		fmt.Println("please pick a default nomi (by their name) to chat with (you can change this later, type :h to know more):")
+		_, nomis := listAndValidate("", 3)
+		fmt.Println(nomis)
+		var userInput string
+		fmt.Scan(&userInput)
+		//fmt.Println(userInput)
+
+		exists, _ := listAndValidate(userInput, 1)
+
+		//fmt.Println("exists:", exists)
+		if !exists ***REMOVED***
+			fmt.Printf("\033[31mNo Nomi with the name '%s' was found, please pick a valid name (case sensitive)\033[0m\n", userInput)
+		***REMOVED*** else ***REMOVED***
+			generateConfig()
+			break
+		***REMOVED***
+	***REMOVED***
+***REMOVED***
 func generateConfig() ***REMOVED***
 	_, finalString := listAndValidate("", 2)
 	//fmt.Println(finalString)
 
-	towrite := fmt.Sprintf(`***REMOVED***
+	var towrite string
+	if activateElevenlab ***REMOVED***
+		towrite = fmt.Sprintf(`***REMOVED***
 	"apiKey": "%s",
-    "default": "%s",
+   "default": "%s",
+   "elevenlab": "%s",
+   "activateVoice": "%t",
 ***REMOVED***
     %s
 ***REMOVED***
-***REMOVED***`, apikey, nomiName, finalString)
+***REMOVED***`, apikey, nomiName, elevenlabKey, activateElevenlab, finalString)
+	***REMOVED*** else ***REMOVED***
+		towrite = fmt.Sprintf(`***REMOVED***
+        "apiKey": "%s",
+		"default": "%s",
+		"elevenlab": "none",
+        "enableEleven": "%t",
+	***REMOVED***
+    %s
+***REMOVED***
+***REMOVED***`, apikey, nomiName, activateElevenlab, finalString)
+	***REMOVED***
 	os.WriteFile(filePath, []byte(towrite), 0644)
 ***REMOVED***
 
 func startChatting() ***REMOVED***
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("(type :h to see the list of options)")
-	fmt.Println("Welcome to Nomi chat with ", nomiName)
+	fmt.Println("Welcome to the chat with ", nomiName)
 	for ***REMOVED***
-		// Print the prompt only once initially
+
 		fmt.Print("\033[34mYou> \033[0m")
+
 		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input) // Remove whitespace and newlines
+		input = strings.TrimSpace(input)
 
 		if input == "" ***REMOVED***
-			// Skip further prompt printing if the input is empty
 			continue
 		***REMOVED***
 
@@ -142,6 +218,15 @@ func startChatting() ***REMOVED***
 			quitChat()
 		case ":c", ":change":
 			changeDefaultNomi(false)
+		case ":r", ":restart":
+			regenerateConfig()
+			// To do
+			/* 	case ":ed", ":deactivateeleven":
+				deactivateEleven()
+			case ":ae", "addElevenKey":
+				addElevenKey()
+			case ":re", ":reload":
+				reloadConf() */
 		default:
 			responseMessage := sendMesssage(input)
 			if responseMessage == "" ***REMOVED***
@@ -149,6 +234,16 @@ func startChatting() ***REMOVED***
 				return
 			***REMOVED***
 			fmt.Println(responseMessage)
+			//fmt.Println("activateelevenlab", activateElevenlab)
+			if activateElevenlab ***REMOVED***
+				go func() ***REMOVED***
+					cmd := exec.Command("mpv", audioFile)
+					err := cmd.Run()
+					if err != nil ***REMOVED***
+						fmt.Println("error running mpv:", err)
+					***REMOVED***
+				***REMOVED***()
+			***REMOVED***
 		***REMOVED***
 	***REMOVED***
 ***REMOVED***
@@ -217,6 +312,12 @@ func sendMesssage(input string) string ***REMOVED***
 		fmt.Printf("\033[31merror unmarshaling reply data:%s\033[31m\n", err)
 		return ""
 	***REMOVED***
+	//fmt.Println("activate elevenlab:", activateElevenlab)
+	if activateElevenlab ***REMOVED***
+
+		getAudioUwu(data.ReplyMessage.Text)
+		exec.Command("mpv", audioFile)
+	***REMOVED***
 	//ai response
 	return fmt.Sprintf("\033[36m%s> %s\033[0m", nomiName, data.ReplyMessage.Text)
 ***REMOVED***
@@ -226,9 +327,10 @@ func showHelp() ***REMOVED***
 	fmt.Println("Help: Enter your message to chat with the Nomi.")
 	fmt.Println("Commands:")
 	fmt.Println("  :h, :help - Show this help message")
-	fmt.Println("  :p, :pchange - Change the default Nomi")
+	fmt.Println("  :p, :pchange - Change the default chat Nomi")
 	fmt.Println("  :q, :quit - Quit the chat")
-	fmt.Println("  :c, :change - Change current Nomi\n")
+	fmt.Println("  :c, :change - Change current chat Nomi")
+	fmt.Println("  :r, :restart - restart from scratch the config.json")
 ***REMOVED***
 
 func changeDefaultNomi(defaultOrCurrent bool) ***REMOVED***
@@ -253,7 +355,6 @@ func changeDefaultNomi(defaultOrCurrent bool) ***REMOVED***
 				fmt.Printf("\033[32mChanged default chat to %s\033[0m\n", nomiName)
 				fmt.Println("do you want to start chatting with the nomi", nomiName+"? (y/N) default No")
 				var userInput string
-
 				for ***REMOVED***
 					fmt.Scan(&userInput)
 					switch strings.ToLower(userInput) ***REMOVED***
@@ -269,18 +370,15 @@ func changeDefaultNomi(defaultOrCurrent bool) ***REMOVED***
 					***REMOVED***
 				***REMOVED***
 			***REMOVED***
-
 		***REMOVED*** else ***REMOVED***
 			fmt.Printf("\033[31mNo Nomi with the name '%s' was found, please pick a valid name (case sensitive)\033[0m\n", nomiName)
 		***REMOVED***
 	***REMOVED***
 ***REMOVED***
-
 func quitChat() ***REMOVED***
 	fmt.Println("Exiting chat...")
 	os.Exit(0)
 ***REMOVED***
-
 func listAndValidate(input string, number int) (bool, string) ***REMOVED***
 	req, err := http.NewRequest(http.MethodGet, "https://api.nomi.ai/v1/nomis", nil)
 	if err != nil ***REMOVED***
@@ -365,4 +463,38 @@ func updateId(name string) bool ***REMOVED***
 		***REMOVED***
 	***REMOVED***
 	return false
+***REMOVED***
+func getAudioUwu(input string) ***REMOVED***
+	if fileExists(audioFile) ***REMOVED***
+		err := os.Remove(audioFile)
+		if err != nil ***REMOVED***
+			fmt.Println("Error clearing audio file", err)
+		***REMOVED***
+	***REMOVED***
+	stopSpinner := make(chan bool)
+	go func() ***REMOVED***
+		spinChars := `|/-\`
+		i := 0
+		for ***REMOVED***
+			select ***REMOVED***
+			case <-stopSpinner:
+				return
+			default:
+				fmt.Printf("\033[95m\rfetching elevenlab audio... %c\033[0m", spinChars[i%len(spinChars)])
+				i++
+				time.Sleep(100 * time.Millisecond)
+			***REMOVED***
+		***REMOVED***
+	***REMOVED***()
+	elevenlab.GetAudio(elevenlabKey, voiceId2, audioFile, input)
+	stopSpinner <- true
+	fmt.Print("\r\033[K")
+***REMOVED***
+func isMpvInstalled() bool ***REMOVED***
+	cmd := exec.Command("mpv", "--version")
+	err := cmd.Run()
+	if err != nil ***REMOVED***
+		fmt.Println("error running mpv:", err)
+	***REMOVED***
+	return err == nil
 ***REMOVED***

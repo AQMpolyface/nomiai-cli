@@ -3,3 +3,5 @@ test.go
 config.json
 .github
 bin
+audio
+output.mp3
