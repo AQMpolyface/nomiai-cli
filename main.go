@@ -64,9 +64,11 @@ func main() ***REMOVED***
 			return
 		***REMOVED***
 		apikey = currentData.Apikey
+		///fmt.Println(apikey)
 		//if a name is set in the config.json, it will auitomatically pick it
 		if currentData.DefaultName != "" ***REMOVED***
 			nomiName = currentData.DefaultName
+			updateId(nomiName)
 		***REMOVED*** else ***REMOVED***
 			fmt.Println("\033[31mits most likely that the config is malformed. Please delete it and re-run the program\033[0m")
 			return
@@ -120,15 +122,18 @@ func startChatting() ***REMOVED***
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("(type :h to see the list of options)")
 	fmt.Println("Welcome to Nomi chat with ", nomiName)
-
 	for ***REMOVED***
+		// Print the prompt only once initially
 		fmt.Print("\033[34mYou> \033[0m")
 		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
+		input = strings.TrimSpace(input) // Remove whitespace and newlines
+
+		if input == "" ***REMOVED***
+			// Skip further prompt printing if the input is empty
+			continue
+		***REMOVED***
 
 		switch input ***REMOVED***
-		case "":
-			continue
 		case ":help", ":h":
 			showHelp()
 		case ":pchange", ":p":
@@ -205,6 +210,7 @@ func sendMesssage(input string) string ***REMOVED***
 		fmt.Printf("\033[31merror reading body:%s\033[31m", err)
 		return ""
 	***REMOVED***
+	//fmt.Println(string(b))
 	var data ReplyText
 	err = json.Unmarshal(b, &data)
 	if err != nil ***REMOVED***
