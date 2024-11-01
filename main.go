@@ -2,16 +2,18 @@ package main
 
 import (
 	"ai/packages/elevenlab"
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/chzyer/readline"
 )
 
 type Message struct {
@@ -199,16 +201,35 @@ func generateConfig() {
 }
 
 func startChatting() {
-	reader := bufio.NewReader(os.Stdin)
+
 	fmt.Println("(type :h to see the list of options)")
 	fmt.Println("Welcome to the chat with ", nomiName)
-	for {
 
+	//purplePrompt := "\033[35mYou> \033[0m" // \033[35m for purple text, \033[0m to reset color
+	bluePrompt := "\033[34mYou> \033[0m"
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          bluePrompt,
+		InterruptPrompt: "\n",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		log.Fatalf("Failed to initialize readline: %s", err)
+	}
+	defer rl.Close()
+	for {
 		fmt.Print("\033[34mYou> \033[0m")
 
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
+		input, err := rl.Readline()
+		if err != nil {
+			if err == readline.ErrInterrupt {
+				fmt.Println("\n\033[31mPlease use :q or :quit if you want to exit the chat\033[0m")
+				continue
+			}
+			fmt.Println("\033[31mError reading input\033[0m", err)
+			continue
+		}
 
+		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
 		}
