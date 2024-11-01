@@ -79,13 +79,16 @@ func main() ***REMOVED***
 
 		for ***REMOVED***
 			fmt.Println("please pick a default nomi (by their name) to chat with (you can change this later, type :h to know more):")
-			listNomiViaApi()
+			fmt.Println("listapi:")
+			_, nomis := listAndValidate("", 3)
+			fmt.Println(nomis)
 			var userInput string
 			fmt.Scan(&userInput)
 			//fmt.Println(userInput)
-			exists := listNomiViaApi2AndValidate(userInput)
 
-			fmt.Println("exists:", exists)
+			exists, _ := listAndValidate(userInput, 1)
+
+			//fmt.Println("exists:", exists)
 			if !exists ***REMOVED***
 				fmt.Printf("\033[31mNo Nomi with the name '%s' was found, please pick a valid name (case sensitive)\033[0m\n", userInput)
 			***REMOVED*** else ***REMOVED***
@@ -100,8 +103,7 @@ func main() ***REMOVED***
 
 // function generateConfig generates the config file
 func generateConfig() ***REMOVED***
-
-	finalString := listNomiViaApi()
+	_, finalString := listAndValidate("", 2)
 	//fmt.Println(finalString)
 
 	towrite := fmt.Sprintf(`***REMOVED***
@@ -210,7 +212,7 @@ func sendMesssage(input string) string ***REMOVED***
 		return ""
 	***REMOVED***
 	//ai response
-	return fmt.Sprintf("\033[36m%s> %s\033[0m\n", nomiName, data.ReplyMessage.Text)
+	return fmt.Sprintf("\033[36m%s> %s\033[0m", nomiName, data.ReplyMessage.Text)
 ***REMOVED***
 
 // help message
@@ -231,9 +233,10 @@ func changeDefaultNomi(defaultOrCurrent bool) ***REMOVED***
 		***REMOVED*** else ***REMOVED***
 			fmt.Println("which nomi do you wanna talk to now?")
 		***REMOVED***
-		listNomi()
+		_, nomis := listAndValidate("", 3)
+		fmt.Println(nomis)
 		fmt.Scan(&nomiName)
-		exist := validateNomi(nomiName, &currentData)
+		exist, _ := listAndValidate(nomiName, 1)
 
 		if exist ***REMOVED***
 			if !defaultOrCurrent ***REMOVED***
@@ -272,114 +275,78 @@ func quitChat() ***REMOVED***
 	os.Exit(0)
 ***REMOVED***
 
-func listNomi() ***REMOVED***
-	for _, nomi := range currentData.Nomi ***REMOVED***
-		fmt.Printf("Name: %s, Gender: %s\n", nomi.Name, nomi.Gender)
-	***REMOVED***
-***REMOVED***
-func validateNomi(name string, currentData *Config) bool ***REMOVED***
-	//	fmt.Println("currentData is :", currentData)
-	//	fmt.Println("name uwuwuiwuwu:", name)
-	trimmedName := strings.Trim(name, " ")
-
-	//	fmt.Println("name uwuwuiwuwu:", trimmedName)
-	i := 1
-	for _, nomi := range currentData.Nomi ***REMOVED***
-
-		fmt.Println("nomi name number " + string(i) + "name:" + nomi.Name)
-		if trimmedName == nomi.Name ***REMOVED***
-			nomiName = nomi.Name
-			nomiId = nomi.Id
-			return true
-		***REMOVED***
-		i++
-	***REMOVED***
-	return false
-***REMOVED***
-
-func listNomiViaApi() string ***REMOVED***
-	fmt.Println("apikey:", apikey)
+func listAndValidate(input string, number int) (bool, string) ***REMOVED***
 	req, err := http.NewRequest(http.MethodGet, "https://api.nomi.ai/v1/nomis", nil)
 	if err != nil ***REMOVED***
 		fmt.Printf("\033[31merror making the request,%s\033[31m", err)
-		return ""
+		return false, ""
 	***REMOVED***
 	req.Header.Add("Authorization", apikey)
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil ***REMOVED***
 		fmt.Printf("\033[31merror making the request:%s\033[31m", err)
-		return ""
+		return false, ""
 	***REMOVED***
 	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK ***REMOVED***
+		fmt.Printf("\033[31merror: received status code %d\033[31m", response.StatusCode)
+		return false, ""
+	***REMOVED***
 
 	b, err := io.ReadAll(response.Body)
 	if err != nil ***REMOVED***
 		fmt.Printf("\033[31merror reading the response:%s\033[31m", err)
-		return ""
+		return false, ""
 	***REMOVED***
-	//fmt.Println(string(b))
-	err = json.Unmarshal(b, &res)
+
+	err = json.Unmarshal(b, &res) // Ensure `res` is defined properly
 	if err != nil ***REMOVED***
 		fmt.Printf("\033[31merror unmarshalling the response:%s\033[31m", err)
-		return ""
+		return false, ""
 	***REMOVED***
-	for _, nomi := range res.Nomis ***REMOVED***
-		fmt.Printf("Name: %s, Gender: %s\n", nomi.Name, nomi.Gender)
-	***REMOVED***
-	var nomiSlice strings.Builder
-	for i, nomi := range res.Nomis ***REMOVED***
-		nomiSlice.WriteString(fmt.Sprintf(`***REMOVED***
-		"name": "%s",
-		"id": "%s",
-		"relationshipType": "%s",
-		"gender": "%s"
-	***REMOVED***`, nomi.Name, nomi.UUID, nomi.RelationshipType, nomi.Gender))
-		if i < len(res.Nomis)-1 ***REMOVED***
-			nomiSlice.WriteString(",\n")
+
+	switch number ***REMOVED***
+	case 1:
+		for _, nomi := range res.Nomis ***REMOVED***
+			if input == nomi.Name ***REMOVED***
+				nomiName = nomi.Name
+				nomiId = nomi.UUID
+				return true, ""
+			***REMOVED***
 		***REMOVED***
-	***REMOVED***
-	finalString := nomiSlice.String()
-	//fmt.Println("finalString uwu:", finalString)
-	return finalString
-***REMOVED***
+		return false, ""
 
-func listNomiViaApi2AndValidate(input string) bool ***REMOVED***
-	fmt.Println("apikey:", apikey)
-	req, err := http.NewRequest(http.MethodGet, "https://api.nomi.ai/v1/nomis", nil)
-	if err != nil ***REMOVED***
-		fmt.Printf("\033[31merror making the request,%s\033[31m", err)
-		return false
-	***REMOVED***
-	req.Header.Add("Authorization", apikey)
-
-	response, err := http.DefaultClient.Do(req)
-	if err != nil ***REMOVED***
-		fmt.Printf("\033[31merror making the request:%s\033[31m", err)
-		return false
-	***REMOVED***
-	defer response.Body.Close()
-
-	b, err := io.ReadAll(response.Body)
-	if err != nil ***REMOVED***
-		fmt.Printf("\033[31merror reading the response:%s\033[31m", err)
-		return false
-	***REMOVED***
-	//fmt.Println(string(b))
-	err = json.Unmarshal(b, &res)
-	if err != nil ***REMOVED***
-		fmt.Printf("\033[31merror unmarshalling the response:%s\033[31m", err)
-		return false
-	***REMOVED***
-	for _, nomi := range res.Nomis ***REMOVED***
-		//fmt.Printf("Name: %s, Gender: %s\n", nomi.Name, nomi.Gender)
-		if input == nomi.Name ***REMOVED***
-			nomiName = nomi.Name
-			nomiId = nomi.UUID
-			return true
+	case 2:
+		var nomiSlice strings.Builder
+		for i, nomi := range res.Nomis ***REMOVED***
+			nomiSlice.WriteString(fmt.Sprintf(`***REMOVED***
+                "name": "%s",
+                "id": "%s",
+                "relationshipType": "%s",
+                "gender": "%s"
+***REMOVED***`, nomi.Name, nomi.UUID, nomi.RelationshipType, nomi.Gender))
+			if i < len(res.Nomis)-1 ***REMOVED***
+				nomiSlice.WriteString(",\n")
+			***REMOVED***
 		***REMOVED***
+		finalString := nomiSlice.String()
+		return true, finalString
+
+	case 3:
+		var nomiSlice strings.Builder
+		for _, nomi := range res.Nomis ***REMOVED***
+			uwu := fmt.Sprintf("Name: %s, Gender: %s\n", nomi.Name, nomi.Gender)
+			nomiSlice.WriteString(uwu)
+		***REMOVED***
+		finalString := nomiSlice.String()
+		return true, finalString
+
+	default:
+		fmt.Println("Invalid case number provided.")
+		return false, ""
 	***REMOVED***
-	return false
 ***REMOVED***
 
 func updateId(name string) bool ***REMOVED***
