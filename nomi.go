@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	//	"github.com/vhalmd/nomi-go-sdk"
 )
 
 type Message struct {
@@ -96,6 +95,7 @@ func main() {
 		generateConfig(apikey)
 	}
 }
+//function generateConfig generates the config file
 func generateConfig(tempApiKey string) {
 	req, err := http.NewRequest(http.MethodGet, "https://api.nomi.ai/v1/nomis", nil)
 	if err != nil {
@@ -197,10 +197,11 @@ func startChatting() {
 			fmt.Println("error unmarshaling reply data:", err)
 			return
 		}
+		//ai response
 		fmt.Println(nomiName + ">" + data.ReplyMessage.Text)
 	}
 }
-
+//check if the file exists
 func fileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
