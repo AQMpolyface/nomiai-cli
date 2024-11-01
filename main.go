@@ -38,6 +38,7 @@ type Config struct ***REMOVED***
 	DefaultName  string       `json:"default"`
 	ElevenlabKey string       `json:"elevenlab"`
 	EnableEleven string       `json:"activateVoice"`
+	VoiceId      string       `json:"voiceid"`
 	Nomi         []NomiConfig `json:"nomis"`
 ***REMOVED***
 type NomiConfig struct ***REMOVED***
@@ -101,7 +102,7 @@ func regenerateConfig() ***REMOVED***
 	//fmt.Println(apikey)
 	var activateElevenlabString string
 	fmt.Println("do you wanna add an elevenlab api key? (so your nomi can have a voice) (y/n)")
-	fmt.Println("\033[31mYou NEED to install mpv if you want this to work\033[0m")
+	fmt.Println("\033[31mYou \033[1;4mNEED\033[0m \033[31mto install mpv if you want this to work\033[0m")
 
 	for ***REMOVED***
 		fmt.Scan(&activateElevenlabString)
@@ -116,21 +117,22 @@ func regenerateConfig() ***REMOVED***
 			activateElevenlab = true
 			fmt.Println("paste your api key here:")
 			fmt.Scan(&elevenlabKey)
-			fmt.Println("do you to use a different voice?(the default one is cgSgspJ2msm6clMCkdW9) (y/n) ")
+			fmt.Println("do you to use the default voice?(the default one is cgSgspJ2msm6clMCkdW9) (y/n) ")
 			var voiceId string
 			for ***REMOVED***
 				fmt.Scan(&voiceId)
 				switch strings.ToLower(voiceId) ***REMOVED***
 				case "y", "yes":
-					fmt.Println("enter the voice id here:")
-					fmt.Scan(&voiceId2)
-					break
-				case "n", "no", "":
 					fmt.Println("the default voice id is set")
 					voiceId2 = "cgSgspJ2msm6clMCkdW9"
 					break
+				case "n", "no", "":
+
+					fmt.Println("enter the voice id here:")
+					fmt.Scan(&voiceId2)
+					break
 				default:
-					fmt.Println("please input y (yes) ot n (no)")
+					fmt.Println("please input y (yes) or n (no)")
 					continue
 				***REMOVED***
 				break
@@ -176,20 +178,22 @@ func generateConfig() ***REMOVED***
    "default": "%s",
    "elevenlab": "%s",
    "activateVoice": "%t",
+   "voiceid": "%s",
 ***REMOVED***
     %s
 ***REMOVED***
-***REMOVED***`, apikey, nomiName, elevenlabKey, activateElevenlab, finalString)
+***REMOVED***`, apikey, nomiName, elevenlabKey, activateElevenlab, voiceId2, finalString)
 	***REMOVED*** else ***REMOVED***
 		towrite = fmt.Sprintf(`***REMOVED***
         "apiKey": "%s",
 		"default": "%s",
 		"elevenlab": "none",
-        "enableEleven": "%t",
+        "activateVoice": "%t",
+        "voiceid": "%s",
 	***REMOVED***
     %s
 ***REMOVED***
-***REMOVED***`, apikey, nomiName, activateElevenlab, finalString)
+***REMOVED***`, apikey, nomiName, activateElevenlab, voiceId2, finalString)
 	***REMOVED***
 	os.WriteFile(filePath, []byte(towrite), 0644)
 ***REMOVED***
