@@ -16,3 +16,5 @@ The nomi go sdk (https://github.com/vhalmd/nomi-go-sdk) helped me a lot to creat
 I would appreciate if you found a bug, or had an idea to make the tool better, please let me know via github. thanks!
 
 You dont need to modify the code In any way, you will be prompted for your api key, and you will have to pick your Nomi by their names. (case sensitive)
+
+You can downloads the binary directly here: https://github.com/AQMpolyface/nomiai-cli/releases
