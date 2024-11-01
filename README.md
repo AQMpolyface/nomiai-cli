@@ -18,7 +18,7 @@ git clone https://github.com/AQMpolyface/nomiai-cli.git
 cd nomiai-cli
 go mod download
 go mod tidy
-go run nomi.go
+go run main.go
 ````
 When you run it for the first time, you will get prompted to create a config file. No worries, you just gotta past your nomi api key, and optionally your elevenapp api key, and then chose with which nomi the chat will automatically start when the cli is run.
 
