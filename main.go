@@ -10,48 +10,51 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+
+	//"regexp"
 	"strings"
 	"time"
 
 	"github.com/chzyer/readline"
 )
 
-type Message struct ***REMOVED***
+type Message struct {
 	MessageText string `json:"messageText"`
-***REMOVED***
-type ReplyText struct ***REMOVED***
-	ReplyMessage struct ***REMOVED***
+}
+type ReplyText struct {
+	ReplyMessage struct {
 		Text string `json:"text"`
-	***REMOVED*** `json:"replyMessage"`
-***REMOVED***
-type GetNomisResponse struct ***REMOVED***
+	} `json:"replyMessage"`
+}
+type GetNomisResponse struct {
 	Nomis []Nomi `json:"nomis"`
-***REMOVED***
-type Nomi struct ***REMOVED***
+}
+type Nomi struct {
 	UUID             string    `json:"uuid"`
 	Gender           string    `json:"gender"`
 	Name             string    `json:"name"`
 	Created          time.Time `json:"created"`
 	RelationshipType string    `json:"relationshipType"`
-***REMOVED***
+}
 
-type Config struct ***REMOVED***
+type Config struct {
 	Apikey       string       `json:"apiKey"`
 	DefaultName  string       `json:"default"`
 	ElevenlabKey string       `json:"elevenlab"`
 	EnableEleven string       `json:"activateVoice"`
 	VoiceId      string       `json:"voiceid"`
 	Nomi         []NomiConfig `json:"nomis"`
-***REMOVED***
-type NomiConfig struct ***REMOVED***
+}
+type NomiConfig struct {
 	Name   string `json:"name"`
 	Id     string `json:"id"`
 	Gender string `json:"gender"`
-***REMOVED***
+}
 
 const filePath string = "config.json"
 const audioFile string = "output.mp3"
 
+// var re = regexp.MustCompile(`\*(.*?)\*`)
 var elevenlabKey string
 var res GetNomisResponse
 var currentData Config
@@ -61,20 +64,147 @@ var nomiName string
 var activateElevenlab bool
 var voiceId2 string = "cgSgspJ2msm6clMCkdW9"
 
-func main() ***REMOVED***
+func startChatting() {
 
-	if fileExists(filePath) ***REMOVED***
+	fmt.Println("(type :h to see the list of options)")
+	fmt.Println("Welcome to the chat with ", nomiName)
+
+	//purplePrompt := "\033[35mYou> \033[0m" // \033[35m for purple text, \033[0m to reset color
+	bluePrompt := "\033[34mYou> " //\033[0m"
+
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          bluePrompt,
+		InterruptPrompt: "\n",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		log.Fatalf("Failed to initialize readline: %s", err)
+	}
+	defer rl.Close()
+	for {
+		//	fmt.Print("\033[34mYou> "//\033[0m")
+
+		input, err := rl.Readline()
+		//	input = re.ReplaceAllString(input, "\033[3m$1\033[0m\033[34m")
+		if err != nil {
+			if err == readline.ErrInterrupt {
+				fmt.Println("\033[31mPlease use :q or :quit if you want to exit the chat\033[0m")
+				continue
+			}
+			fmt.Println("\033[31mError reading input\033[0m", err)
+			continue
+		}
+
+		input = strings.TrimSpace(input)
+		if input == "" {
+			continue
+		}
+
+		switch input {
+		case ":help", ":h":
+			showHelp()
+		case ":pchange", ":p":
+			changeDefaultNomi(true)
+		case ":q", ":quit":
+			quitChat()
+		case ":lv", ":listVoices":
+			getVoices()
+		case ":c", ":change":
+			changeDefaultNomi(false)
+		case ":r", ":restart":
+			regenerateConfig()
+			/* todo
+			case ":t", ":theme":
+				showThemelevenlab.ChangeTheme()
+				theme, exists := elevenlab.GetTheme(selectedTheme)
+				if !exists {
+					log.Fatalf("Theme %s does not exist.", showTheme)
+				}*/
+		case ":de", ":deactivateeleven":
+			deactivateEleven()
+		case ":ea", ":actEleven":
+			activateEleven()
+		case ":ae", "addElevenKey":
+			addElevenKey()
+		case ":re", ":reload":
+			main()
+		default:
+			responseMessage := sendMesssage(input)
+			if responseMessage == "" {
+				fmt.Printf("\033[31mthere was a fatal error, sorry :( \033[31m")
+				return
+			}
+
+			//responseMessage = re.ReplaceAllString(responseMessage, "\033[3m$1\033[0m\033[34m\033[36m")
+			//ansi code doesnt work everywhere so deactivated it. hope the resp of the ansi code work
+
+			fmt.Println(responseMessage)
+			//fmt.Println("activateelevenlab", activateElevenlab)
+			if activateElevenlab {
+				go func() {
+					cmd := exec.Command("mpv", audioFile)
+					err := cmd.Run()
+					if err != nil {
+						fmt.Println("error running mpv:", err)
+					}
+				}()
+			}
+		}
+	}
+}
+func getVoices() {
+	voices := elevenlab.GetVoices(elevenlabKey)
+
+	fmt.Println("\033[32mAvailable Voices:\033[0m")
+	for _, voice := range voices {
+		fmt.Printf("ID: %s, Name: %s\n", voice.VoiceID, voice.Name)
+	}
+}
+func addElevenKey() {
+	fmt.Printf("enter your api key here:")
+	fmt.Scan(&elevenlabKey)
+	activateElevenlab = true
+
+	generateConfig()
+
+}
+func activateEleven() {
+	fmt.Println("activateleleven:", activateElevenlab)
+	if activateElevenlab {
+		fmt.Println("elevenlab is already activated")
+		return
+	} else {
+		activateElevenlab = true
+		generateConfig()
+		fmt.Printf("\033[32msuccessfully activated elevenlab.\033[0m")
+	}
+}
+func deactivateEleven() {
+	fmt.Println("activateleleven:", activateElevenlab)
+	if !activateElevenlab {
+		fmt.Println("elevenlab is already deactivated")
+		return
+	} else {
+		activateElevenlab = false
+		generateConfig()
+		fmt.Printf("\033[32msuccessfully activated elevenlab.\033[0m")
+
+	}
+}
+func main() {
+
+	if fileExists(filePath) {
 		jsonData, err := os.ReadFile(filePath)
-		if err != nil ***REMOVED***
+		if err != nil {
 			fmt.Printf("\033[31merror reading %s:%s\033[31m", filePath, err)
 			return
-		***REMOVED***
+		}
 
 		err = json.Unmarshal(jsonData, &currentData)
-		if err != nil ***REMOVED***
+		if err != nil {
 			fmt.Printf("\033[31merror unmarshaling data:%s\033[31m", err)
 			return
-		***REMOVED***
+		}
 		apikey = currentData.Apikey
 		///fmt.Println(apikey)
 		elevenlabKey = currentData.ElevenlabKey
@@ -82,23 +212,23 @@ func main() ***REMOVED***
 		activateElevenlab = str == currentData.EnableEleven
 		//fmt.Println("activateelevenlab:", activateElevenlab)
 		//if a name is set in the config.json, it will auitomatically pick it
-		if currentData.DefaultName != "" ***REMOVED***
+		if currentData.DefaultName != "" {
 			nomiName = currentData.DefaultName
 			updateId(nomiName)
-		***REMOVED*** else ***REMOVED***
+		} else {
 			fmt.Println("\033[31mits most likely that the config is malformed. Please delete it and re-run the program\033[0m")
 			return
-		***REMOVED***
+		}
 
-	***REMOVED*** else ***REMOVED***
+	} else {
 		regenerateConfig()
-	***REMOVED***
+	}
 
 	startChatting()
-***REMOVED***
+}
 
 // function generateConfig generates the config file
-func regenerateConfig() ***REMOVED***
+func regenerateConfig() {
 	fmt.Println("please paste here your api key to generate your config:")
 	fmt.Scan(&apikey)
 	//fmt.Println(apikey)
@@ -106,24 +236,24 @@ func regenerateConfig() ***REMOVED***
 	fmt.Println("do you wanna add an elevenlab api key? (so your nomi can have a voice) (y/n)")
 	fmt.Println("\033[31mYou \033[1;4mNEED\033[0m \033[31mto install mpv if you want this to work\033[0m")
 
-	for ***REMOVED***
+	for {
 		fmt.Scan(&activateElevenlabString)
-		switch strings.ToLower(activateElevenlabString) ***REMOVED***
+		switch strings.ToLower(activateElevenlabString) {
 		case "y", "yes":
 			isIt := isMpvInstalled()
 
-			if !isIt ***REMOVED***
+			if !isIt {
 				fmt.Println("mpv isnt detected. please ensure that it is on your PATH")
 				regenerateConfig()
-			***REMOVED***
+			}
 			activateElevenlab = true
 			fmt.Println("paste your api key here:")
 			fmt.Scan(&elevenlabKey)
 			fmt.Println("do you to use the default voice?(the default one is cgSgspJ2msm6clMCkdW9) (y/n) ")
 			var voiceId string
-			for ***REMOVED***
+			for {
 				fmt.Scan(&voiceId)
-				switch strings.ToLower(voiceId) ***REMOVED***
+				switch strings.ToLower(voiceId) {
 				case "y", "yes":
 					fmt.Println("the default voice id is set")
 					voiceId2 = "cgSgspJ2msm6clMCkdW9"
@@ -136,9 +266,9 @@ func regenerateConfig() ***REMOVED***
 				default:
 					fmt.Println("please input y (yes) or n (no)")
 					continue
-				***REMOVED***
+				}
 				break
-			***REMOVED***
+			}
 			break
 		case "n", "no", "":
 			activateElevenlab = false
@@ -146,11 +276,11 @@ func regenerateConfig() ***REMOVED***
 		default:
 			fmt.Println("please input y (yes) or n (no)")
 			continue
-		***REMOVED***
+		}
 		break
-	***REMOVED***
+	}
 
-	for ***REMOVED***
+	for {
 		fmt.Println("please pick a default nomi (by their name) to chat with (you can change this later, type :h to know more):")
 		_, nomis := listAndValidate("", 3)
 		fmt.Println(nomis)
@@ -161,228 +291,161 @@ func regenerateConfig() ***REMOVED***
 		exists, _ := listAndValidate(userInput, 1)
 
 		//fmt.Println("exists:", exists)
-		if !exists ***REMOVED***
+		if !exists {
 			fmt.Printf("\033[31mNo Nomi with the name '%s' was found, please pick a valid name (case sensitive)\033[0m\n", userInput)
-		***REMOVED*** else ***REMOVED***
+		} else {
 			generateConfig()
 			break
-		***REMOVED***
-	***REMOVED***
-***REMOVED***
-func generateConfig() ***REMOVED***
+		}
+	}
+}
+func generateConfig() {
 	_, finalString := listAndValidate("", 2)
 	//fmt.Println(finalString)
 
 	var towrite string
-	if activateElevenlab ***REMOVED***
-		towrite = fmt.Sprintf(`***REMOVED***
+	if activateElevenlab {
+		towrite = fmt.Sprintf(`{
 	"apiKey": "%s",
    "default": "%s",
    "elevenlab": "%s",
    "activateVoice": "%t",
    "voiceid": "%s",
-***REMOVED***
+	"nomis": [
     %s
-***REMOVED***
-***REMOVED***`, apikey, nomiName, elevenlabKey, activateElevenlab, voiceId2, finalString)
-	***REMOVED*** else ***REMOVED***
-		towrite = fmt.Sprintf(`***REMOVED***
+    ]
+}`, apikey, nomiName, elevenlabKey, activateElevenlab, voiceId2, finalString)
+	} else {
+		towrite = fmt.Sprintf(`{
         "apiKey": "%s",
 		"default": "%s",
 		"elevenlab": "none",
         "activateVoice": "%t",
         "voiceid": "%s",
-	***REMOVED***
+		"nomis": [
     %s
-***REMOVED***
-***REMOVED***`, apikey, nomiName, activateElevenlab, voiceId2, finalString)
-	***REMOVED***
+    ]
+}`, apikey, nomiName, activateElevenlab, voiceId2, finalString)
+	}
 	os.WriteFile(filePath, []byte(towrite), 0644)
-***REMOVED***
-
-func startChatting() ***REMOVED***
-
-	fmt.Println("(type :h to see the list of options)")
-	fmt.Println("Welcome to the chat with ", nomiName)
-
-	//purplePrompt := "\033[35mYou> \033[0m" // \033[35m for purple text, \033[0m to reset color
-	bluePrompt := "\033[34mYou> \033[0m"
-	rl, err := readline.NewEx(&readline.Config***REMOVED***
-		Prompt:          bluePrompt,
-		InterruptPrompt: "\n",
-		EOFPrompt:       "exit",
-	***REMOVED***)
-	if err != nil ***REMOVED***
-		log.Fatalf("Failed to initialize readline: %s", err)
-	***REMOVED***
-	defer rl.Close()
-	for ***REMOVED***
-		fmt.Print("\033[34mYou> \033[0m")
-
-		input, err := rl.Readline()
-		if err != nil ***REMOVED***
-			if err == readline.ErrInterrupt ***REMOVED***
-				fmt.Println("\n\033[31mPlease use :q or :quit if you want to exit the chat\033[0m")
-				continue
-			***REMOVED***
-			fmt.Println("\033[31mError reading input\033[0m", err)
-			continue
-		***REMOVED***
-
-		input = strings.TrimSpace(input)
-		if input == "" ***REMOVED***
-			continue
-		***REMOVED***
-
-		switch input ***REMOVED***
-		case ":help", ":h":
-			showHelp()
-		case ":pchange", ":p":
-			changeDefaultNomi(true)
-		case ":q", ":quit":
-			quitChat()
-		case ":c", ":change":
-			changeDefaultNomi(false)
-		case ":r", ":restart":
-			regenerateConfig()
-			// To do
-			/* 	case ":ed", ":deactivateeleven":
-				deactivateEleven()
-			case ":ae", "addElevenKey":
-				addElevenKey()
-			case ":re", ":reload":
-				reloadConf() */
-		default:
-			responseMessage := sendMesssage(input)
-			if responseMessage == "" ***REMOVED***
-				fmt.Printf("\033[31mthere was a fatal error, sorry :( \033[31m")
-				return
-			***REMOVED***
-			fmt.Println(responseMessage)
-			//fmt.Println("activateelevenlab", activateElevenlab)
-			if activateElevenlab ***REMOVED***
-				go func() ***REMOVED***
-					cmd := exec.Command("mpv", audioFile)
-					err := cmd.Run()
-					if err != nil ***REMOVED***
-						fmt.Println("error running mpv:", err)
-					***REMOVED***
-				***REMOVED***()
-			***REMOVED***
-		***REMOVED***
-	***REMOVED***
-***REMOVED***
+}
 
 // check if the file exists
-func fileExists(filePath string) bool ***REMOVED***
+func fileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
-	if os.IsNotExist(err) ***REMOVED***
+	if os.IsNotExist(err) {
 		return false
-	***REMOVED***
+	}
 	return err == nil
-***REMOVED***
+}
 
-func sendMesssage(input string) string ***REMOVED***
-	messageBody := Message***REMOVED***
+func sendMesssage(input string) string {
+	messageBody := Message{
 		MessageText: input,
-	***REMOVED***
+	}
 	url := fmt.Sprintf("https://api.nomi.ai/v1/nomis/%s/chat", nomiId)
 
 	reqBody, err := json.Marshal(messageBody)
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror marshaling the body:%s\033[31m", err)
 		return ""
-	***REMOVED***
+	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBody))
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Println("\033[31merror building post request:%s\033[31m", err)
 		return ""
-	***REMOVED***
+	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", apikey)
 	stopSpinner := make(chan bool)
-	go func() ***REMOVED***
+	go func() {
 		spinChars := `|/-\`
 		i := 0
-		for ***REMOVED***
-			select ***REMOVED***
+		for {
+			select {
 			case <-stopSpinner:
 				return
 			default:
 				fmt.Printf("\033[95m\rWaiting for api response... %c\033[95m", spinChars[i%len(spinChars)])
 				i++
 				time.Sleep(100 * time.Millisecond)
-			***REMOVED***
-		***REMOVED***
-	***REMOVED***()
+			}
+		}
+	}()
 	response, err := http.DefaultClient.Do(req)
 	stopSpinner <- true
 	fmt.Print("\r\033[K")
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror making post request:%s\033[31m", err)
 		return ""
-	***REMOVED***
+	}
 	defer response.Body.Close()
 
 	b, err := io.ReadAll(response.Body)
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror reading body:%s\033[31m", err)
 		return ""
-	***REMOVED***
+	}
 	//fmt.Println(string(b))
 	var data ReplyText
 	err = json.Unmarshal(b, &data)
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror unmarshaling reply data:%s\033[31m\n", err)
 		return ""
-	***REMOVED***
+	}
 	//fmt.Println("activate elevenlab:", activateElevenlab)
-	if activateElevenlab ***REMOVED***
+	if activateElevenlab {
 
 		getAudioUwu(data.ReplyMessage.Text)
 		exec.Command("mpv", audioFile)
-	***REMOVED***
+	}
 	//ai response
 	return fmt.Sprintf("\033[36m%s> %s\033[0m", nomiName, data.ReplyMessage.Text)
-***REMOVED***
+}
 
 // help message
-func showHelp() ***REMOVED***
-	fmt.Println("Help: Enter your message to chat with the Nomi.")
-	fmt.Println("Commands:")
-	fmt.Println("  :h, :help - Show this help message")
-	fmt.Println("  :p, :pchange - Change the default chat Nomi")
-	fmt.Println("  :q, :quit - Quit the chat")
-	fmt.Println("  :c, :change - Change current chat Nomi")
-	fmt.Println("  :r, :restart - restart from scratch the config.json")
-***REMOVED***
 
-func changeDefaultNomi(defaultOrCurrent bool) ***REMOVED***
-	for ***REMOVED***
+func showHelp() {
+	fmt.Println("Available Commands:")
+	fmt.Println("  :h, :help         - Show this help message")
+	fmt.Println("  :p, :pchange      - Change the default chat Nomi")
+	fmt.Println("  :q, :quit         - Quit the chat session")
+	fmt.Println("  :c, :change       - Change the current chat Nomi")
+	fmt.Println("  :r, :restart      - Regenerate the configuration from scratch")
+	//fmt.Println("  :t, :theme        - Change the color scheme")
+	fmt.Println("  :de, :deactivateeleven - Deactivate the Eleven Labs integration")
+	fmt.Println("  :ea, :actEleven   - Activate the Eleven Labs integration")
+	fmt.Println("  :ae, :addElevenKey - Add your Eleven Labs API key")
+	fmt.Println("  :re, :reload      - Reload the application (in case you manualy changed the config.json)")
+	fmt.Println("  :lv, :listvoices  -  List aviable elevenlab voices (require api key)")
+}
+
+func changeDefaultNomi(defaultOrCurrent bool) {
+	for {
 		//fmt.Println("Changing the default Nomi...")
-		if defaultOrCurrent ***REMOVED***
+		if defaultOrCurrent {
 			fmt.Println("who do you want your default nomi to be?")
-		***REMOVED*** else ***REMOVED***
+		} else {
 			fmt.Println("which nomi do you wanna talk to now?")
-		***REMOVED***
+		}
 		_, nomis := listAndValidate("", 3)
 		fmt.Println(nomis)
 		fmt.Scan(&nomiName)
 		exist, _ := listAndValidate(nomiName, 1)
 
-		if exist ***REMOVED***
-			if !defaultOrCurrent ***REMOVED***
+		if exist {
+			if !defaultOrCurrent {
 				updateId(nomiName)
 				startChatting()
-			***REMOVED*** else ***REMOVED***
+			} else {
 				generateConfig()
 				fmt.Printf("\033[32mChanged default chat to %s\033[0m\n", nomiName)
 				fmt.Println("do you want to start chatting with the nomi", nomiName+"? (y/N) default No")
 				var userInput string
-				for ***REMOVED***
+				for {
 					fmt.Scan(&userInput)
-					switch strings.ToLower(userInput) ***REMOVED***
+					switch strings.ToLower(userInput) {
 					case "y", "yes":
 						updateId(userInput)
 						startChatting()
@@ -392,134 +455,134 @@ func changeDefaultNomi(defaultOrCurrent bool) ***REMOVED***
 						break
 					default:
 						fmt.Println("please enter y (yes) or n (no)")
-					***REMOVED***
-				***REMOVED***
-			***REMOVED***
-		***REMOVED*** else ***REMOVED***
+					}
+				}
+			}
+		} else {
 			fmt.Printf("\033[31mNo Nomi with the name '%s' was found, please pick a valid name (case sensitive)\033[0m\n", nomiName)
-		***REMOVED***
-	***REMOVED***
-***REMOVED***
-func quitChat() ***REMOVED***
+		}
+	}
+}
+func quitChat() {
 	fmt.Println("Exiting chat...")
 	os.Exit(0)
-***REMOVED***
-func listAndValidate(input string, number int) (bool, string) ***REMOVED***
+}
+func listAndValidate(input string, number int) (bool, string) {
 	req, err := http.NewRequest(http.MethodGet, "https://api.nomi.ai/v1/nomis", nil)
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror making the request,%s\033[31m", err)
 		return false, ""
-	***REMOVED***
+	}
 	req.Header.Add("Authorization", apikey)
 
 	response, err := http.DefaultClient.Do(req)
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror making the request:%s\033[31m", err)
 		return false, ""
-	***REMOVED***
+	}
 	defer response.Body.Close()
 
-	if response.StatusCode != http.StatusOK ***REMOVED***
+	if response.StatusCode != http.StatusOK {
 		fmt.Printf("\033[31merror: received status code %d\033[31m", response.StatusCode)
 		return false, ""
-	***REMOVED***
+	}
 
 	b, err := io.ReadAll(response.Body)
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror reading the response:%s\033[31m", err)
 		return false, ""
-	***REMOVED***
+	}
 
 	err = json.Unmarshal(b, &res) // Ensure `res` is defined properly
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Printf("\033[31merror unmarshalling the response:%s\033[31m", err)
 		return false, ""
-	***REMOVED***
+	}
 
-	switch number ***REMOVED***
+	switch number {
 	case 1:
-		for _, nomi := range res.Nomis ***REMOVED***
-			if input == nomi.Name ***REMOVED***
+		for _, nomi := range res.Nomis {
+			if input == nomi.Name {
 				nomiName = nomi.Name
 				nomiId = nomi.UUID
 				return true, ""
-			***REMOVED***
-		***REMOVED***
+			}
+		}
 		return false, ""
 
 	case 2:
 		var nomiSlice strings.Builder
-		for i, nomi := range res.Nomis ***REMOVED***
-			nomiSlice.WriteString(fmt.Sprintf(`***REMOVED***
+		for i, nomi := range res.Nomis {
+			nomiSlice.WriteString(fmt.Sprintf(`{
                 "name": "%s",
                 "id": "%s",
                 "relationshipType": "%s",
                 "gender": "%s"
-***REMOVED***`, nomi.Name, nomi.UUID, nomi.RelationshipType, nomi.Gender))
-			if i < len(res.Nomis)-1 ***REMOVED***
+            }`, nomi.Name, nomi.UUID, nomi.RelationshipType, nomi.Gender))
+			if i < len(res.Nomis)-1 {
 				nomiSlice.WriteString(",\n")
-			***REMOVED***
-		***REMOVED***
+			}
+		}
 		finalString := nomiSlice.String()
 		return true, finalString
 
 	case 3:
 		var nomiSlice strings.Builder
-		for _, nomi := range res.Nomis ***REMOVED***
+		for _, nomi := range res.Nomis {
 			uwu := fmt.Sprintf("Name: %s, Gender: %s\n", nomi.Name, nomi.Gender)
 			nomiSlice.WriteString(uwu)
-		***REMOVED***
+		}
 		finalString := nomiSlice.String()
 		return true, finalString
 
 	default:
-		fmt.Println("Invalid case number provided.")
+		fmt.Println("this line will never execute. if it does, i dont know wtf you did honestly (uwu)")
 		return false, ""
-	***REMOVED***
-***REMOVED***
+	}
+}
 
-func updateId(name string) bool ***REMOVED***
-	for _, nomi := range currentData.Nomi ***REMOVED***
+func updateId(name string) bool {
+	for _, nomi := range currentData.Nomi {
 		//fmt.Printf("Name: %s, Gender: %s\n", nomi.Name, nomi.Gender)
-		if name == nomi.Name ***REMOVED***
+		if name == nomi.Name {
 			nomiName = nomi.Name
 			nomiId = nomi.Id
 			return true
-		***REMOVED***
-	***REMOVED***
+		}
+	}
 	return false
-***REMOVED***
-func getAudioUwu(input string) ***REMOVED***
-	if fileExists(audioFile) ***REMOVED***
+}
+func getAudioUwu(input string) {
+	if fileExists(audioFile) {
 		err := os.Remove(audioFile)
-		if err != nil ***REMOVED***
+		if err != nil {
 			fmt.Println("Error clearing audio file", err)
-		***REMOVED***
-	***REMOVED***
+		}
+	}
 	stopSpinner := make(chan bool)
-	go func() ***REMOVED***
+	go func() {
 		spinChars := `|/-\`
 		i := 0
-		for ***REMOVED***
-			select ***REMOVED***
+		for {
+			select {
 			case <-stopSpinner:
 				return
 			default:
 				fmt.Printf("\033[95m\rfetching elevenlab audio... %c\033[0m", spinChars[i%len(spinChars)])
 				i++
 				time.Sleep(100 * time.Millisecond)
-			***REMOVED***
-		***REMOVED***
-	***REMOVED***()
+			}
+		}
+	}()
 	elevenlab.GetAudio(elevenlabKey, voiceId2, audioFile, input)
 	stopSpinner <- true
 	fmt.Print("\r\033[K")
-***REMOVED***
-func isMpvInstalled() bool ***REMOVED***
+}
+func isMpvInstalled() bool {
 	cmd := exec.Command("mpv", "--version")
 	err := cmd.Run()
-	if err != nil ***REMOVED***
+	if err != nil {
 		fmt.Println("error running mpv:", err)
-	***REMOVED***
+	}
 	return err == nil
-***REMOVED***
+}
