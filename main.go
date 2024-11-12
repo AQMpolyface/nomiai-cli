@@ -88,10 +88,10 @@ func startChatting() {
 		//	input = re.ReplaceAllString(input, "\033[3m$1\033[0m\033[34m")
 		if err != nil {
 			if err == readline.ErrInterrupt {
-				fmt.Println("\033[31mPlease use :q or :quit if you want to exit the chat\033[0m")
+				fmt.Printf("\033[31mPlease use :q or :quit if you want to exit the chat\033[0m")
 				continue
 			}
-			fmt.Println("\033[31mError reading input\033[0m", err)
+      fmt.Printf("\033[31mError reading input: %s \033[0m", err)
 			continue
 		}
 
@@ -169,9 +169,9 @@ func addElevenKey() {
 
 }
 func activateEleven() {
-	fmt.Println("activateleleven:", activateElevenlab)
+	fmt.Printf("activateleleven:", activateElevenlab)
 	if activateElevenlab {
-		fmt.Println("elevenlab is already activated")
+		fmt.Printf("elevenlab is already activated")
 		return
 	} else {
 		activateElevenlab = true
@@ -180,7 +180,7 @@ func activateEleven() {
 	}
 }
 func deactivateEleven() {
-	fmt.Println("activateleleven:", activateElevenlab)
+	//fmt.Println("activateleleven:", activateElevenlab) debug thing
 	if !activateElevenlab {
 		fmt.Println("elevenlab is already deactivated")
 		return
@@ -202,7 +202,7 @@ func main() {
 
 		err = json.Unmarshal(jsonData, &currentData)
 		if err != nil {
-			fmt.Printf("\033[31merror unmarshaling data:%s\033[31m", err)
+			fmt.Printf("\033[31merror unmarshaling data:%s, please delete the file and rerun the program\033[31m", err)
 			return
 		}
 		apikey = currentData.Apikey
@@ -211,7 +211,7 @@ func main() {
 		str := "true"
 		activateElevenlab = str == currentData.EnableEleven
 		//fmt.Println("activateelevenlab:", activateElevenlab)
-		//if a name is set in the config.json, it will auitomatically pick it
+		//if a name is set in the config.json, it will automatically pick it
 		if currentData.DefaultName != "" {
 			nomiName = currentData.DefaultName
 			updateId(nomiName)
@@ -223,15 +223,13 @@ func main() {
 	} else {
 		regenerateConfig()
 	}
-
 	startChatting()
 }
 
-// function generateConfig generates the config file
+// function generateConfig generates the config file, or regenerate it in case of update
 func regenerateConfig() {
-	fmt.Println("please paste here your api key to generate your config:")
+	fmt.Printf("please paste here your api key to generate your config:")
 	fmt.Scan(&apikey)
-	//fmt.Println(apikey)
 	var activateElevenlabString string
 	fmt.Println("do you wanna add an elevenlab api key? (so your nomi can have a voice) (y/n)")
 	fmt.Println("\033[31mYou \033[1;4mNEED\033[0m \033[31mto install mpv if you want this to work\033[0m")
@@ -247,24 +245,24 @@ func regenerateConfig() {
 				regenerateConfig()
 			}
 			activateElevenlab = true
-			fmt.Println("paste your api key here:")
+			fmt.Printf("paste your api key here:")
 			fmt.Scan(&elevenlabKey)
-			fmt.Println("do you to use the default voice?(the default one is cgSgspJ2msm6clMCkdW9) (y/n) ")
+			fmt.Printf("do you to use the default voice?(the default one is cgSgspJ2msm6clMCkdW9) (y/n) ")
 			var voiceId string
 			for {
 				fmt.Scan(&voiceId)
 				switch strings.ToLower(voiceId) {
 				case "y", "yes":
-					fmt.Println("the default voice id is set")
+					fmt.Printf("the default voice id is set")
 					voiceId2 = "cgSgspJ2msm6clMCkdW9"
 					break
 				case "n", "no", "":
 
-					fmt.Println("enter the voice id here:")
+					fmt.Printf("enter the voice id here:")
 					fmt.Scan(&voiceId2)
 					break
 				default:
-					fmt.Println("please input y (yes) or n (no)")
+					fmt.Printf("please input y (yes) or n (no)")
 					continue
 				}
 				break
@@ -467,6 +465,7 @@ func quitChat() {
 	fmt.Println("Exiting chat...")
 	os.Exit(0)
 }
+//behold... my matserpiece! (wtf was i thinking about when i wrote this)
 func listAndValidate(input string, number int) (bool, string) {
 	req, err := http.NewRequest(http.MethodGet, "https://api.nomi.ai/v1/nomis", nil)
 	if err != nil {
@@ -493,12 +492,13 @@ func listAndValidate(input string, number int) (bool, string) {
 		return false, ""
 	}
 
-	err = json.Unmarshal(b, &res) // Ensure `res` is defined properly
+	err = json.Unmarshal(b, &res) 
 	if err != nil {
 		fmt.Printf("\033[31merror unmarshalling the response:%s\033[31m", err)
 		return false, ""
 	}
 
+  //checks if the uuid is correct
 	switch number {
 	case 1:
 		for _, nomi := range res.Nomis {
@@ -509,7 +509,7 @@ func listAndValidate(input string, number int) (bool, string) {
 			}
 		}
 		return false, ""
-
+  //create the nomi to write in the file
 	case 2:
 		var nomiSlice strings.Builder
 		for i, nomi := range res.Nomis {
@@ -525,7 +525,7 @@ func listAndValidate(input string, number int) (bool, string) {
 		}
 		finalString := nomiSlice.String()
 		return true, finalString
-
+  //just lists aviable nomis
 	case 3:
 		var nomiSlice strings.Builder
 		for _, nomi := range res.Nomis {
